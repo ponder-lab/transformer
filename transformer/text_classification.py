@@ -58,7 +58,7 @@ def main(_):
         start_time = timeit.default_timer()
         skipped_time = 0
 
-        validation_loss, validation_accuracy = train(train_data=train_data,
+        validation_loss, validation_accuracy, train_skipped_time = train(train_data=train_data,
               validation_data=test_data,
               model=model,
               loss_object=loss_object,
@@ -67,6 +67,7 @@ def main(_):
               save_summary_steps=flags.FLAGS.steps_per_epoch,
               validation_steps=flags.FLAGS.validation_steps,
               job_dir=flags.FLAGS["job-dir"].value)
+        skipped_time += train_skipped_time
 
         time = timeit.default_timer() - start_time - skipped_time
 
@@ -130,8 +131,13 @@ def train(train_data, validation_data, model, loss_object, optimizer,
     loss_mean = tf.keras.metrics.Mean()
     acc = tf.keras.metrics.BinaryAccuracy()
     validation_loss, validation_accuracy = None, None
+    # Seconds spent writing logs and summaries, which the caller excludes from its timing.
+    skipped_time = 0
 
-    with tf.summary.create_file_writer(job_dir).as_default():  # pylint: disable=not-context-manager
+    writer_time = timeit.default_timer()
+    writer = tf.summary.create_file_writer(job_dir)
+    skipped_time += timeit.default_timer() - writer_time
+    with writer.as_default():  # pylint: disable=not-context-manager
         for step, (inputs, outputs) in enumerate(train_data):
             train_step(inputs,
                        outputs,
@@ -142,10 +148,12 @@ def train(train_data, validation_data, model, loss_object, optimizer,
                        acc=acc)
 
             if step % save_summary_steps == 0:
+                summary_time = timeit.default_timer()
                 logging.info("Step: %d: Loss: %f, Accuracy: %f", step,
                              loss_mean.result(), acc.result())
                 tf.summary.scalar("Train Loss", loss_mean.result(), step=step)
                 tf.summary.scalar("Train Accuracy", acc.result(), step=step)
+                skipped_time += timeit.default_timer() - summary_time
 
                 loss_mean.reset_states()
                 acc.reset_states()
@@ -162,24 +170,26 @@ def train(train_data, validation_data, model, loss_object, optimizer,
                     if current_validation_step >= validation_steps:
                         break
 
+                validation_loss = float(loss_mean.result())
+                validation_accuracy = float(acc.result())
+                summary_time = timeit.default_timer()
                 logging.info(
                     "Step: %d, validation_loss: %f, validation accuracy: %f",
                     step, loss_mean.result(), acc.result())
-                validation_loss = float(loss_mean.result())
-                validation_accuracy = float(acc.result())
                 tf.summary.scalar("Validation Loss",
                                   loss_mean.result(),
                                   step=step)
                 tf.summary.scalar("Validation Accuracy",
                                   acc.result(),
                                   step=step)
+                skipped_time += timeit.default_timer() - summary_time
                 loss_mean.reset_states()
                 acc.reset_states()
 
             if step >= max_steps:
                 break
 
-    return validation_loss, validation_accuracy
+    return validation_loss, validation_accuracy, skipped_time
 
 
 if __name__ == "__main__":
