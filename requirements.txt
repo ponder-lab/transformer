@@ -1,4 +1,9 @@
 # Packages transformer/text_classification.py needs on top of an environment providing TensorFlow
 # 2.9.3 and NumPy 1.23.5 on Python 3.10. TensorFlow Datasets 4.6 is the line released with
 # TensorFlow 2.9 and still provides the imdb_reviews/subwords8k configuration the script loads.
+# Its dependencies are pinned to the same era: left free, tensorflow-metadata resolves to a release
+# needing protobuf 4 or later, and TensorFlow 2.9 then fails to import (it requires protobuf < 3.20).
 tensorflow-datasets==4.6.0
+tensorflow-metadata==1.9.0
+protobuf==3.19.6
+etils==0.6.0
