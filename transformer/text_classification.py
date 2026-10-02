@@ -7,6 +7,9 @@ from tensorflow.keras.callbacks import TensorBoard  # pylint: disable=import-err
 from tensorflow.keras.layers import Dense, GlobalAveragePooling1D, Input  # pylint: disable=import-error
 import tensorflow_datasets as tfds
 
+from scripts.utils import write_csv
+import timeit
+
 from .transformer import Encoder, PaddingMask
 
 
@@ -21,14 +24,14 @@ def main(_):
     train_data = train_data.filter(
         lambda x, y: tf.shape(x)[0] < flags.FLAGS.max_len)
     train_data = train_data \
-        .padded_batch(flags.FLAGS.batch_size, train_data.output_shapes) \
+        .padded_batch(flags.FLAGS.batch_size) \
         .shuffle(flags.FLAGS.shuffle_buffer_size) \
         .repeat()
 
     test_data = test_data.filter(
         lambda x, y: tf.shape(x)[0] < flags.FLAGS.max_len)
     test_data = test_data \
-        .padded_batch(flags.FLAGS.batch_size, test_data.output_shapes)
+        .padded_batch(flags.FLAGS.batch_size)
 
     vocab_size = info.features["text"].encoder.vocab_size
 
@@ -52,7 +55,10 @@ def main(_):
         model = Model(inputs=inp, outputs=[net, enc_enc_attention_weights])
         model.summary()
 
-        train(train_data=train_data,
+        start_time = timeit.default_timer()
+        skipped_time = 0
+
+        validation_loss, validation_accuracy = train(train_data=train_data,
               validation_data=test_data,
               model=model,
               loss_object=loss_object,
@@ -61,6 +67,11 @@ def main(_):
               save_summary_steps=flags.FLAGS.steps_per_epoch,
               validation_steps=flags.FLAGS.validation_steps,
               job_dir=flags.FLAGS["job-dir"].value)
+
+        time = timeit.default_timer() - start_time - skipped_time
+
+        write_csv(__file__, flags.FLAGS.epochs, validation_accuracy,
+                  validation_loss, time)
     else:
         model = Model(inputs=inp, outputs=net)
         model.summary()
@@ -118,6 +129,7 @@ def train(train_data, validation_data, model, loss_object, optimizer,
           max_steps, save_summary_steps, validation_steps, job_dir):
     loss_mean = tf.keras.metrics.Mean()
     acc = tf.keras.metrics.BinaryAccuracy()
+    validation_loss, validation_accuracy = None, None
 
     with tf.summary.create_file_writer(job_dir).as_default():  # pylint: disable=not-context-manager
         for step, (inputs, outputs) in enumerate(train_data):
@@ -153,6 +165,8 @@ def train(train_data, validation_data, model, loss_object, optimizer,
                 logging.info(
                     "Step: %d, validation_loss: %f, validation accuracy: %f",
                     step, loss_mean.result(), acc.result())
+                validation_loss = float(loss_mean.result())
+                validation_accuracy = float(acc.result())
                 tf.summary.scalar("Validation Loss",
                                   loss_mean.result(),
                                   step=step)
@@ -164,6 +178,8 @@ def train(train_data, validation_data, model, loss_object, optimizer,
 
             if step >= max_steps:
                 break
+
+    return validation_loss, validation_accuracy
 
 
 if __name__ == "__main__":

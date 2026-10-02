@@ -1,0 +1,4 @@
+# Packages transformer/text_classification.py needs on top of an environment providing TensorFlow
+# 2.9.3 and NumPy 1.23.5 on Python 3.10. TensorFlow Datasets 4.6 is the line released with
+# TensorFlow 2.9 and still provides the imdb_reviews/subwords8k configuration the script loads.
+tensorflow-datasets==4.6.0
