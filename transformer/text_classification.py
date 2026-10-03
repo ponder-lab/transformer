@@ -148,11 +148,13 @@ def train(train_data, validation_data, model, loss_object, optimizer,
                        acc=acc)
 
             if step % save_summary_steps == 0:
+                # Read in the timed region, so waiting for the queued training steps is counted; only the logging is skipped.
+                train_loss_v, train_acc_v = float(loss_mean.result()), float(acc.result())
                 summary_time = timeit.default_timer()
                 logging.info("Step: %d: Loss: %f, Accuracy: %f", step,
-                             loss_mean.result(), acc.result())
-                tf.summary.scalar("Train Loss", loss_mean.result(), step=step)
-                tf.summary.scalar("Train Accuracy", acc.result(), step=step)
+                             train_loss_v, train_acc_v)
+                tf.summary.scalar("Train Loss", train_loss_v, step=step)
+                tf.summary.scalar("Train Accuracy", train_acc_v, step=step)
                 skipped_time += timeit.default_timer() - summary_time
 
                 loss_mean.reset_states()
