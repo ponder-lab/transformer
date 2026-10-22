@@ -335,6 +335,7 @@ class MultiHeadAttention:
 
 
 class Attention(Layer):
+    @tf.function
     def call(self, inputs):
         q, k, v, mask = inputs
 
@@ -357,6 +358,7 @@ class PositionalEncoding(Layer):
         super().__init__(*args, **kwargs)
         self.d_model = d_model
 
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.float32)])
     def call(self, inputs):
         position = tf.shape(inputs)[1]
 
@@ -384,6 +386,7 @@ class MultiplyConstant(Layer):
         super().__init__(*args, **kwargs)
         self.c = c
 
+    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.float32)])
     def call(self, inputs):
         return inputs * self.c
 
@@ -393,12 +396,14 @@ class MultiplyConstant(Layer):
 
 
 class PaddingMask(Layer):
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def call(self, inputs):
         seq = tf.cast(tf.math.equal(inputs, 0), tf.float32)
         return seq[:, tf.newaxis, tf.newaxis, :]
 
 
 class PaddingAndLookaheadMask(Layer):
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None), dtype=tf.int32)])
     def call(self, inputs):
         size = tf.shape(inputs)[1]
         lhm = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)

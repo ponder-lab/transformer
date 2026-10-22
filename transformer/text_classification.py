@@ -101,6 +101,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
         self.warmup_steps = warmup_steps
 
+    @tf.function(input_signature=[tf.TensorSpec(shape=(), dtype=tf.float32)])
     def __call__(self, step):
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps**-1.5)
