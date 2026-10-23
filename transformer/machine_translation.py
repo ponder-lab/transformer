@@ -6,6 +6,9 @@ from tensorflow.keras import Model  # pylint: disable=import-error
 from tensorflow.keras.layers import Input  # pylint: disable=import-error
 import tensorflow_datasets as tfds
 
+from scripts.utils import write_csv
+import timeit
+
 from .transformer import Transformer, gelu
 
 
@@ -49,10 +52,10 @@ class CustomLoss(tf.keras.losses.Loss):
 
 
 def main(_):
-    tokenizer_en = tfds.features.text.SubwordTextEncoder.load_from_file(
+    tokenizer_en = tfds.deprecated.text.SubwordTextEncoder.load_from_file(
         flags.FLAGS.subwords_en_file)
 
-    tokenizer_pt = tfds.features.text.SubwordTextEncoder.load_from_file(
+    tokenizer_pt = tfds.deprecated.text.SubwordTextEncoder.load_from_file(
         flags.FLAGS.subwords_pt_file)
 
     data = tfds.load('ted_hrlr_translate/pt_to_en',
@@ -104,7 +107,10 @@ def main(_):
                                ])
         model.summary()
 
-        train(
+        start_time = timeit.default_timer()
+        skipped_time = 0
+
+        train_loss, train_accuracy = train(
             train_data=train_data,
             val_data=val_data,
             model=model,
@@ -115,6 +121,11 @@ def main(_):
             loss_object=loss,
             job_dir=flags.FLAGS["job-dir"].value,
         )
+
+        time = timeit.default_timer() - start_time - skipped_time
+
+        write_csv(__file__, flags.FLAGS.epochs, train_accuracy, train_loss,
+                  time)
     else:
         train_data = train_data.map(lambda s, t: ((s, t[:, :-1]), t[:, 1:]))
         val_data = val_data.map(lambda s, t: ((s, t[:, :-1]), t[:, 1:]))
@@ -182,6 +193,8 @@ def train(train_data, val_data, model, validation_steps, epochs,
                          train_loss.result(), train_accuracy.result())
             tf.summary.scalar("Loss", train_loss.result(), step=epoch)
             tf.summary.scalar("Accuracy", train_accuracy.result(), step=epoch)
+
+    return float(train_loss.result()), float(train_accuracy.result())
 
 
 def preprocess_dataset(dataset, tokenizer_pt, tokenizer_en, max_len):
