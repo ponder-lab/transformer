@@ -386,7 +386,7 @@ class MultiplyConstant(Layer):
         super().__init__(*args, **kwargs)
         self.c = c
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=None, dtype=tf.float32)])
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
     def call(self, inputs):
         return inputs * self.c
 

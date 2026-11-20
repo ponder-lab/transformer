@@ -197,6 +197,7 @@ def train(train_data, val_data, model, validation_steps, epochs,
     return float(train_loss.result()), float(train_accuracy.result())
 
 
+@tf.function
 def preprocess_dataset(dataset, tokenizer_pt, tokenizer_en, max_len):
     def encode(src, tar):
         lang1 = [tokenizer_pt.vocab_size] + tokenizer_pt.encode(
