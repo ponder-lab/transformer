@@ -21,6 +21,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
         self.warmup_steps = warmup_steps
 
+    @tf.function
     def __call__(self, step):
         arg1 = tf.math.rsqrt(step)
         arg2 = step * (self.warmup_steps**-1.5)
@@ -37,6 +38,7 @@ class CustomLoss(tf.keras.losses.Loss):
         super().__init__(*args, **kwargs)
         self.mask_val = mask_val
 
+    @tf.function
     def call(self, y_true, y_pred):
         ans = tf.keras.backend.sparse_categorical_crossentropy(
             y_true, y_pred, from_logits=True, axis=-1)
@@ -195,6 +197,7 @@ def train(train_data, val_data, model, validation_steps, epochs,
     return float(train_loss.result()), float(train_accuracy.result())
 
 
+@tf.function
 def preprocess_dataset(dataset, tokenizer_pt, tokenizer_en, max_len):
     def encode(src, tar):
         lang1 = [tokenizer_pt.vocab_size] + tokenizer_pt.encode(
